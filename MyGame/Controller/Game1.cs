@@ -41,15 +41,25 @@ namespace MyGame.Controller
 		Texture2D enemyTexture;
 		List<Enemy> enemies;
 
+		Texture2D ninjaTexture;
+		List<NewEnemy> ninjas;
+
 		// The rate at which the enemies appear
 		TimeSpan enemySpawnTime;
 		TimeSpan previousSpawnTime;
+
+		TimeSpan ninjaSpawnTime;
+		TimeSpan previousNinjaSpawnTime;
 
 		// A random number generator
 		Random random;
 
 		Texture2D projectileTexture;
 		List<Projectile> projectiles;
+
+
+		Texture2D laserTexture;
+		List<Laser> lasers;
 
 		// The rate of fire of the player laser
 		TimeSpan fireTime;
@@ -84,17 +94,23 @@ namespace MyGame.Controller
 
 			// Initialize the enemies list
 			enemies = new List<Enemy>();
+			ninjas = new List<NewEnemy>();
 
 			// Set the time keepers to zero
 			previousSpawnTime = TimeSpan.Zero;
 
+			previousNinjaSpawnTime = TimeSpan.Zero;
+
 			// Used to determine how fast enemy respawns
 			enemySpawnTime = TimeSpan.FromSeconds(1.0f);
+			ninjaSpawnTime = TimeSpan.FromMilliseconds(0.00000000000000001f);
 
 			// Initialize our random number generator
 			random = new Random();
 
 			projectiles = new List<Projectile>();
+
+			lasers = new List<Laser>();
 
 			// Set the laser to fire every quarter second
 			fireTime = TimeSpan.FromSeconds(.15f);
@@ -128,7 +144,9 @@ namespace MyGame.Controller
 			bgLayer2.Initialize(Content, "Texture/bgLayer2", GraphicsDevice.Viewport.Width, -2);
 
 			enemyTexture = Content.Load<Texture2D>("Animation/mineAnimation");
+			ninjaTexture = Content.Load<Texture2D>("Texture/ninjaTiny2");
 
+			projectileTexture = Content.Load<Texture2D>("Texture/laser");
 			projectileTexture = Content.Load<Texture2D>("Texture/laser");
 
 			explosionTexture = Content.Load<Texture2D>("Animation/explosion");
@@ -168,6 +186,8 @@ namespace MyGame.Controller
 
 			// Update the enemies
 			UpdateEnemies(gameTime);
+
+			UpdateNinja(gameTime);
 
 			// Update the collision
 			UpdateCollision();
@@ -245,6 +265,33 @@ namespace MyGame.Controller
 
 			}
 
+			for (int i = 0; i < ninjas.Count; i++)
+			{
+				rectangle2 = new Rectangle((int)ninjas[i].Position.X,
+				(int)ninjas[i].Position.Y,
+				ninjas[i].Width,
+				ninjas[i].Height);
+
+				// Determine if the two objects collided with each
+				// other
+				if (rectangle1.Intersects(rectangle2))
+				{
+					// Subtract the health from the player based on
+					// the enemy damage
+					player.Health -= ninjas[i].Damage;
+
+					// Since the enemy collided with the player
+					// destroy it
+					ninjas[i].Health = 0;
+
+					// If the player health is less than zero we died
+					if (player.Health <= 0)
+						player.Active = false;
+				}
+
+
+			}
+
 			// Projectile vs Enemy Collision
 			for (int i = 0; i < projectiles.Count; i++)
 			{
@@ -263,6 +310,28 @@ namespace MyGame.Controller
 					if (rectangle1.Intersects(rectangle2))
 					{
 						enemies[j].Health -= projectiles[i].Damage;
+						projectiles[i].Active = false;
+					}
+				}
+			}
+
+			for (int i = 0; i < projectiles.Count; i++)
+			{
+				for (int j = 0; j < ninjas.Count; j++)
+				{
+					// Create the rectangles we need to determine if we collided with each other
+					rectangle1 = new Rectangle((int)projectiles[i].Position.X -
+					projectiles[i].Width / 2, (int)projectiles[i].Position.Y -
+					projectiles[i].Height / 2, projectiles[i].Width, projectiles[i].Height);
+
+					rectangle2 = new Rectangle((int)ninjas[j].Position.X - ninjas[j].Width / 2,
+					(int)ninjas[j].Position.Y - ninjas[j].Height / 2,
+					ninjas[j].Width, ninjas[j].Height);
+
+					// Determine if the two objects collided with each other
+					if (rectangle1.Intersects(rectangle2))
+					{
+						ninjas[j].Health -= projectiles[i].Damage;
 						projectiles[i].Active = false;
 					}
 				}
@@ -335,6 +404,27 @@ namespace MyGame.Controller
 			enemies.Add(enemy);
 		}
 
+		private void AddNinja()
+		{
+			// Create the animation object
+			Animation ninjaAnimation = new Animation();
+
+			// Initialize the animation with the correct animation information
+			ninjaAnimation.Initialize(ninjaTexture, Vector2.Zero, 80, 67, 11, 45, Color.White, 1f, true);
+
+			// Randomly generate the position of the enemy
+			Vector2 position = new Vector2(GraphicsDevice.Viewport.Width + ninjaTexture.Width / 2, random.Next(100, GraphicsDevice.Viewport.Height - 100));
+
+			// Create an enemy
+			NewEnemy ninja = new NewEnemy();
+
+			// Initialize the enemy
+			ninja.Initialize(ninjaAnimation, position);
+
+			// Add the enemy to the active enemies list
+			ninjas.Add(ninja);
+		}
+
 		private void AddExplosion(Vector2 position)
 		{
 			Animation explosion = new Animation();
@@ -368,6 +458,36 @@ namespace MyGame.Controller
 				if (enemies[i].Active == false)
 				{
 					enemies.RemoveAt(i);
+				}
+			}
+		}
+
+		private void UpdateNinja(GameTime gameTime)
+		{
+			// Spawn a new enemy enemy every 1.5 seconds
+			if (gameTime.TotalGameTime - previousNinjaSpawnTime > ninjaSpawnTime)
+			{
+				previousNinjaSpawnTime = gameTime.TotalGameTime;
+
+				// Add an Enemy
+				AddNinja();
+			}
+
+			// Update the Enemies
+			for (int i = ninjas.Count - 1; i >= 0; i--)
+			{
+				ninjas[i].Update(gameTime);
+
+				// If not active and health <= 0
+				if (ninjas[i].Health <= 0)
+				{
+					// Add an explosion
+					AddExplosion(ninjas[i].Position);
+				}
+
+				if (ninjas[i].Active == false)
+				{
+					ninjas.RemoveAt(i);
 				}
 			}
 		}
@@ -408,6 +528,11 @@ namespace MyGame.Controller
 			for (int i = 0; i < enemies.Count; i++)
 			{
 				enemies[i].Draw(spriteBatch);
+			}
+
+			for (int i = 0; i < ninjas.Count; i++)
+			{
+				ninjas[i].Draw(spriteBatch);
 			}
 
 			// Draw the Projectiles
