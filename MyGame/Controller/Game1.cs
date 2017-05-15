@@ -3,6 +3,8 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
+using Microsoft.Xna.Framework.Audio;
 using MyGame.Model;
 using System.Collections.Generic;
 
@@ -67,6 +69,20 @@ namespace MyGame.Controller
 
 		Texture2D explosionTexture;
 		List<Animation> explosions;
+
+		// The sound that is played when a laser is fired
+		SoundEffect laserSound;
+
+		// The sound used when the player or an enemy dies
+		SoundEffect explosionSound;
+
+		// The music played during gameplay
+		Song gameplayMusic;
+
+		//Number that holds the player score
+		int score;
+		// The font used to display UI elements
+		SpriteFont font;
 		#endregion
 
 		public Game1()
@@ -117,6 +133,9 @@ namespace MyGame.Controller
 
 			explosions = new List<Animation>();
 
+			//Set player's score to zero
+			score = 0;
+
 			base.Initialize();
 		}
 
@@ -150,6 +169,19 @@ namespace MyGame.Controller
 			projectileTexture = Content.Load<Texture2D>("Texture/laser");
 
 			explosionTexture = Content.Load<Texture2D>("Animation/explosion");
+
+			// Load the music
+			gameplayMusic = Content.Load<Song>("sound/gameMusic");
+
+			// Load the laser and explosion sound effect
+			laserSound = Content.Load<SoundEffect>("sound/laserFire");
+			explosionSound = Content.Load<SoundEffect>("sound/explosion");
+
+			// Load the score font
+			font = Content.Load<SpriteFont>("Font/gameFont");
+
+			// Start the music right away
+			PlayMusic(gameplayMusic);
 
 			mainBackground = Content.Load<Texture2D>("Texture/mainbackground");
 		}
@@ -222,6 +254,21 @@ namespace MyGame.Controller
 				}
 
 			}
+		}
+
+		private void PlayMusic(Song song)
+		{
+			// Due to the way the MediaPlayer plays music,
+			// we have to catch the exception. Music will play when the game is not tethered
+			try
+			{
+				// Play the music
+				MediaPlayer.Play(song);
+
+				// Loop the currently playing song
+				MediaPlayer.IsRepeating = true;
+			}
+			catch { }
 		}
 
 		private void UpdateCollision()
@@ -380,6 +427,15 @@ namespace MyGame.Controller
 
 				// Add the projectile, but add it to the front and center of the player
 				AddProjectile(player.Position + new Vector2(player.Width / 2, 0));
+				// Play the laser sound
+				laserSound.Play();
+			}
+
+			// reset score if player health goes to zero
+			if (player.Health <= 0)
+			{
+				player.Health = 100;
+				score = 0;
 			}
 		}
 
@@ -453,6 +509,10 @@ namespace MyGame.Controller
 				{
 					// Add an explosion
 					AddExplosion(enemies[i].Position);
+					// Play the explosion sound
+					explosionSound.Play();
+					//Add to the player's score
+					score += enemies[i].Value;
 				}
 
 				if (enemies[i].Active == false)
@@ -483,6 +543,10 @@ namespace MyGame.Controller
 				{
 					// Add an explosion
 					AddExplosion(ninjas[i].Position);
+					// Play the explosion sound
+					explosionSound.Play();
+					//Add to the player's score
+					score += ninjas[i].Value;
 				}
 
 				if (ninjas[i].Active == false)
@@ -545,6 +609,10 @@ namespace MyGame.Controller
 			for (int i = 0; i < explosions.Count; i++)
 			{
 				explosions[i].Draw(spriteBatch);
+				// Draw the score
+				spriteBatch.DrawString(font, "score: " + score, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y), Color.White);
+				// Draw the player health
+				spriteBatch.DrawString(font, "health: " + player.Health, new Vector2(GraphicsDevice.Viewport.TitleSafeArea.X, GraphicsDevice.Viewport.TitleSafeArea.Y + 30), Color.White);
 			}
 
 
